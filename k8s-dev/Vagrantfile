@@ -4,7 +4,7 @@ set -eou pipefail
 set -x
 
 sudo dnf module enable -y cri-o:1.17
-sudo dnf install -y cri-o golang cri-o cri-tools podman git make vim grubby
+sudo dnf install -y cri-o golang cri-o cri-tools podman git make vim grubby tmux
 sudo systemctl start crio || true
 sudo systemctl enable crio || true
 [ ! -d kubernetes ] && git clone https://github.com/kubernetes/kubernetes.git
@@ -34,7 +34,28 @@ spec:
     image: openshift/hello-openshift
 EOF
 
-sudo reboot
+cat <<EOF > create-pod
+  export KUBECONFIG=/var/run/kubernetes/admin.kubeconfig
+  pushd kubernetes &> /dev/null
+  cluster/kubectl.sh create -f \$HOME/hello-pod.yaml
+EOF
+chmod +x create-pod
+
+cat <<EOF > delete-pod
+  export KUBECONFIG=/var/run/kubernetes/admin.kubeconfig
+  pushd kubernetes &> /dev/null
+  cluster/kubectl.sh delete -f \$HOME/hello-pod.yaml
+EOF
+chmod +x delete-pod
+
+cat <<EOF > kubectl
+  export KUBECONFIG=/var/run/kubernetes/admin.kubeconfig
+  pushd kubernetes &> /dev/null
+  cluster/kubectl.sh \$@
+EOF
+chmod +x kubectl
+
+[[ ! -f .initial-boot ]] && touch .initial-boot && sudo reboot || true
 
 SCRIPT
 

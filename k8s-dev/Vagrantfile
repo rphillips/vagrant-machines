@@ -42,10 +42,16 @@ SCRIPT
 Vagrant.configure("2") do |config|
   config.vm.box = "fedora/31-cloud-base"
   config.vm.box_version = "31.20191023.0"
+
   config.vm.provider :libvirt do |libvirt|
     libvirt.memory = 12000
     libvirt.cpus = 8
     libvirt.driver = "kvm"
+  end
+
+  config.vm.provider :virtualbox do |v|
+    v.memory = 12000
+    v.cpus = 8
   end
 
   config.vm.provision "shell", privileged: false, inline: $script

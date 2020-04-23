@@ -1,0 +1,52 @@
+$script = <<-'SCRIPT'
+
+set -eou pipefail
+set -x
+
+sudo dnf module enable -y cri-o:1.17
+sudo dnf install -y cri-o golang cri-o cri-tools podman git make vim grubby
+sudo systemctl start crio || true
+sudo systemctl enable crio || true
+[ ! -d kubernetes ] && git clone https://github.com/kubernetes/kubernetes.git
+sudo grubby --update-kernel=ALL --args="systemd.unified_cgroup_hierarchy=0"
+cat <<EOF > run.sh
+cd kubernetes && (
+  hack/install-etcd.sh
+  export PATH="/home/vagrant/kubernetes/third_party/etcd:${PATH}"
+  LOG_LEVEL=4 \
+  CGROUP_DRIVER=systemd \
+  CONTAINER_RUNTIME=remote \
+  CONTAINER_RUNTIME_ENDPOINT='unix:///var/run/crio/crio.sock' \
+    ./hack/local-up-cluster.sh
+)
+EOF
+chmod +x run.sh
+
+cat <<EOF > hello-pod.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: hello-openshift
+  namespace: default
+spec:
+  containers:
+  - name: hello-1
+    image: openshift/hello-openshift
+EOF
+
+sudo reboot
+
+SCRIPT
+
+
+Vagrant.configure("2") do |config|
+  config.vm.box = "fedora/31-cloud-base"
+  config.vm.box_version = "31.20191023.0"
+  config.vm.provider :libvirt do |libvirt|
+    libvirt.memory = 12000
+    libvirt.cpus = 8
+    libvirt.driver = "kvm"
+  end
+
+  config.vm.provision "shell", privileged: false, inline: $script
+end
